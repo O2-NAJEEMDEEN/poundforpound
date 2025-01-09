@@ -55,5 +55,14 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             onResult(true)
         }
     }
+
+    fun getUserById(userId: Int, onResult: (User?) -> Unit) {
+        viewModelScope.launch {
+            val user = withContext(Dispatchers.IO) {
+                userDao.getUserById(userId)
+            }
+            onResult(user)
+        }
+    }
 }
 

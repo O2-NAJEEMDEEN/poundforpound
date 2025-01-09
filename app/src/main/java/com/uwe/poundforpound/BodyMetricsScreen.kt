@@ -1,20 +1,14 @@
 package com.uwe.poundforpound
 
 import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -29,18 +23,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.uwe.poundforpound.ui.theme.fontFamily
+import com.uwe.poundforpound.viewmodel.UserViewModel
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
+import java.util.*
 
 @Composable
 fun BodyMetricsScreen(
     userId: Int,
-    navController: NavHostController
-){
-
+    navController: NavHostController,
+    userViewModel: UserViewModel = viewModel()
+) {
     val context = LocalContext.current
 
     // State for each field
@@ -60,16 +55,15 @@ fun BodyMetricsScreen(
             .background(Color(0xFF121212))
             .fillMaxSize()
             .padding(top = 60.dp, start = 30.dp, end = 30.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
             painter = painterResource(id = R.drawable.poundforpound_logo),
             contentDescription = "Pound for Pound Logo",
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .size(100.dp, 40.dp)
-
+            modifier = Modifier.size(100.dp, 40.dp)
         )
+
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
@@ -78,7 +72,6 @@ fun BodyMetricsScreen(
             fontSize = 20.sp,
             fontFamily = fontFamily,
             fontWeight = FontWeight.Bold
-
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -92,7 +85,6 @@ fun BodyMetricsScreen(
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
-
         Spacer(modifier = Modifier.height(35.dp))
 
         Column(
@@ -102,7 +94,6 @@ fun BodyMetricsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
             // Age Picker
             SelectionRow("Age", selectedDate.value) {
                 showDatePicker.value = true
@@ -122,8 +113,12 @@ fun BodyMetricsScreen(
             SelectionRow("Height", selectedHeight.value) {
                 showHeightPicker.value = true
             }
+
+
+
         }
     }
+
     // Dialogs
     if (showDatePicker.value) {
         DatePickerDialog(
@@ -161,6 +156,79 @@ fun BodyMetricsScreen(
             onDismiss = { showHeightPicker.value = false }
         )
     }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ){
+        Button(
+            onClick = {
+                if (selectedDate.value != "Select" &&
+                    selectedGender.value != "Select" &&
+                    selectedWeight.value != "Select" &&
+                    selectedHeight.value != "Select"
+                ) {
+                    // Fetch the user by userId
+                    userViewModel.getUserById(userId) { user ->
+                        if (user != null) {
+                            // Create a copy of the user with updated metrics
+                            val updatedUser = user.copy(
+                                age = selectedDate.value.toIntOrNull(), // Extract age and stored as an Int
+                                gender = selectedGender.value,
+                                height = selectedHeight.value.filter { it.isDigit() || it == '.' }.toFloatOrNull(), // Extract Float for height
+                                weight = selectedWeight.value.filter { it.isDigit() || it == '.' }.toFloatOrNull()  // Extract Float for weight
+                            )
+                            // Update the user in the database
+                            userViewModel.updateUser(updatedUser) { success ->
+                                if (success) {
+                                    Toast.makeText(context, "Metrics Saved Successfully", Toast.LENGTH_SHORT).show()
+                                    navController.navigate("home/$userId") // Navigate to home page
+                                } else {
+                                    Toast.makeText(context, "Error saving metrics. Try again.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            Toast.makeText(context, "User not found. Please log in again.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF00C853)
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .width(150.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Next",
+                    color = Color(0xFF121212),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = fontFamily,
+                    modifier = Modifier.padding(end = 6.dp)
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Next",
+                    tint = Color(0xFF121212)
+                )
+            }
+        }
+
+    }
+
+    Spacer(modifier = Modifier.height(55.dp))
+
+
 }
 
 @Composable
@@ -180,16 +248,12 @@ fun SelectionRow(title: String, value: String, onClick: () -> Unit) {
             fontFamily = fontFamily,
             fontWeight = FontWeight.Bold
         )
-
-        Row {
-            Text(
-                text = value,
-                fontSize = 16.sp,
-                color = Color(0xFF2979FF),
-                fontFamily = fontFamily
-            )
-        }
-
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            color = Color(0xFF2979FF),
+            fontFamily = fontFamily
+        )
     }
 }
 
@@ -198,7 +262,7 @@ fun GenderPickerDialog(selectedGender: MutableState<String>, onDismiss: () -> Un
     val genders = listOf("Male", "Female")
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "Select Gender") },
+        title = { Text("Select Gender") },
         text = {
             Column {
                 genders.forEach { gender ->
@@ -225,7 +289,7 @@ fun WeightPickerDialog(selectedWeight: MutableState<String>, onDismiss: () -> Un
     val weights = (30..200).toList()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "Select Weight (Kg)") },
+        title = { Text("Select Weight (Kg)") },
         text = {
             Column {
                 weights.forEach { weight ->
@@ -252,7 +316,7 @@ fun HeightPickerDialog(selectedHeight: MutableState<String>, onDismiss: () -> Un
     val heightsInCm = (100..250).toList()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "Select Height") },
+        title = { Text("Select Height") },
         text = {
             Column {
                 heightsInCm.forEach { height ->
@@ -273,6 +337,3 @@ fun HeightPickerDialog(selectedHeight: MutableState<String>, onDismiss: () -> Un
         confirmButton = {}
     )
 }
-
-
-
